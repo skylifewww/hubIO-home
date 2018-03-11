@@ -18,11 +18,12 @@ internal struct UserController {
     internal func addRoutes() {
 
         let group = drop.grouped("api", "users")
-        group.get(handler: getAllUsers)
         group.get("usersCount", handler: getAllUsersCount)
         group.post(handler: signUp)
         group.post("signIn", handler: signIn)
         
+         let secureGroup = drop.tokenMiddleware.grouped("api", "users")
+        secureGroup.get(handler: getAllUsers)
     }
     
     private func getAllUsers(_ request: Request) throws -> ResponseRepresentable {
@@ -43,8 +44,13 @@ internal struct UserController {
         
         let token = try AccessToken.generate(for: user)
         print(token.token)
+        try token.save()
         
-        return try user.makeJSON()
+        var responseJSON = JSON()
+        try responseJSON.set("user", user.makeJSON())
+        try responseJSON.set("token", token.token)
+
+        return responseJSON
     }
     
     private func signIn(_ request: Request) throws -> ResponseRepresentable {
@@ -63,9 +69,17 @@ internal struct UserController {
             let user = try users.first(),
             user.password == password
             else { throw Abort(.badRequest, reason: "Hey dumbass, try again!") }
+        
+        let token = try AccessToken.generate(for: user)
+        print(token.token)
+        try token.save()
+        
+        var responseJSON = JSON()
+        try responseJSON.set("user", user.makeJSON())
+        try responseJSON.set("token", token.token)
         //invalid username or password
         
-        return try user.makeJSON()
+        return responseJSON 
     }
     
     
